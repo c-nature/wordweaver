@@ -19,7 +19,7 @@
             overflow: auto; /* Allow scrolling for smaller screens */
 
             /* Re-applied: Full-screen background image */
-            background-image: url('https://placehold.co/1920x1080/2c3e50/ffffff?text=Word+Weaver');
+            background-image: url('wordweaver.png');
             background-size: cover; /* Back to 'cover' to fill the screen */
             background-position: center;
             background-repeat: no-repeat;
@@ -445,7 +445,7 @@
 </head>
 <body>
     <div id="main-menu" class="main-menu">
-        <h1>Word Weaver</h1> <!-- Restored title -->
+        <h1></h1> <!-- Restored title -->
         <div class="menu-buttons-container">
             <button class="menu-button" id="one-player-btn">One Player (vs. AI)</button>
             <button class="menu-button" id="two-player-btn">Two Players</button>
@@ -526,11 +526,11 @@
     </div>
 
     <!-- Audio elements for sounds -->
-    <audio id="tileClickSound" src="https://actions.google.com/sounds/v1/impacts/wood_block_hit.ogg" preload="auto"></audio>
-    <audio id="gotWordSound" src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" preload="auto"></audio>
-    <audio id="notWordSound" src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" preload="auto"></audio>
-    <audio id="fiftyPointsSound" src="https://actions.google.com/sounds/v1/human_voices/human_chatter.ogg" preload="auto"></audio>
-    <audio id="hundredPointsSound" src="https://actions.google.com/sounds/v1/crowds/battle_crowd.ogg" preload="auto"></audio>
+    <audio id="tileClickSound" src="tileclick.mp3" preload="auto"></audio>
+    <audio id="gotWordSound" src="gotword.mp3" preload="auto"></audio>
+    <audio id="notWordSound" src="notword.mp3" preload="auto"></audio>
+    <audio id="fiftyPointsSound" src="50points.mp3" preload="auto"></audio>
+    <audio id="hundredPointsSound" src="100points.mp3" preload="auto"></audio>
 
     <script>
         // Game configuration
@@ -555,8 +555,8 @@
             'triple-letter': 12,
             'double-letter': 24,
             'quadruple-letter': 4, // Custom
-            'quadruple-word': 4,     // Custom
-            'wild-card': 4         // Custom
+            'quadruple-word': 4,    // Custom
+            'wild-card': 4          // Custom
         };
 
         // This will be populated from an external file
@@ -782,14 +782,14 @@
         // --- Dictionary Loading ---
         async function loadDictionary() {
             try {
-                // Using a publicly available dictionary file for demonstration
-                const response = await fetch('https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt');
+                // Adjust the path if your dictionary file is in a subfolder
+                const response = await fetch('scrabble_dictionary.txt');
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const text = await response.text();
                 // Split by newline, filter out empty lines, and convert to uppercase
-                const words = text.split('\r\n').map(word => word.trim().toUpperCase()).filter(word => word.length > 0);
+                const words = text.split('\n').map(word => word.trim().toUpperCase()).filter(word => word.length > 0);
                 VALID_WORDS = new Set(words);
                 isDictionaryLoaded = true;
                 showMessageBox(`Dictionary loaded with ${VALID_WORDS.size} words!`, 'success');
@@ -927,15 +927,12 @@
             // Corrected: Access points directly from tileObject, not tileObject.dataset
             tile.dataset.points = tileObject.points; 
 
-            let displayLetter = tileObject.assignedLetter || tileObject.letter;
+            let displayLetter = tileObject.letter;
             if (tileObject.letter === '_') {
                 if (tileObject.assignedLetterForTurn) {
                     displayLetter = tileObject.assignedLetterForTurn;
                     tile.dataset.assignedLetter = tileObject.assignedLetterForTurn; // For DOM tracking of current display
-                } else if (tileObject.assignedLetter) {
-                    displayLetter = tileObject.assignedLetter;
-                }
-                else {
+                } else {
                     displayLetter = ''; // Initial display for unassigned blank
                 }
             }
@@ -1205,7 +1202,7 @@
                             assignedLetter: draggedTileData.assignedLetterForTurn // The chosen letter
                         };
                         draggedTile.dataset.tempRow = row;
-                        draggedTile.dataset.tempCol = col; // <-- FIX was .col
+                        draggedTile.dataset.col = col;
                         placedTiles.push({ r: row, c: col, tileObj: draggedTileData, tileElement: draggedTile });
                         showMessageBox(`Blank tile assigned to '${chosenLetter}' and placed at (${row},${col})`, 'info');
 
@@ -1270,7 +1267,7 @@
                 };
 
                 draggedTile.dataset.tempRow = row;
-                draggedTile.dataset.tempCol = col; // <-- FIX was .col
+                draggedTile.dataset.col = col;
                 placedTiles.push({ r: row, c: col, tileObj: draggedTileData, tileElement: draggedTile });
 
                 // Update DOM
@@ -1360,33 +1357,26 @@
                 const r = parseInt(clickedTile.dataset.tempRow);
                 const c = parseInt(clickedTile.dataset.tempCol);
 
-                // Find the corresponding tile in the placedTiles array to get the original object reference
-                const placedTileInfo = placedTiles.find(p => p.r === r && p.c === c);
-
-                if (!placedTileInfo) {
-                    console.error(`Could not find tile object in placedTiles at (${r},${c}) for clicked DOM element.`);
-                    // As a fallback, try to find it on the board if the state is inconsistent
-                    const tileOnBoard = board[r][c];
-                    if (!tileOnBoard) return;
-                    // This fallback is less safe as it might not be the original object reference
-                    // but it's better than nothing if placedTiles is out of sync.
-                    playerRacks[currentPlayer].push(tileOnBoard);
-                } else {
-                     playerRacks[currentPlayer].push(placedTileInfo.tileObj); // Add the original tile object back to the rack
-                }
-                
+                // Retrieve the tile object directly from the board array at its recorded temporary position.
+                // This is more direct and less reliant on the `placedTiles` array for lookup during a click.
                 const tileObjToRevert = board[r][c];
+
+                if (!tileObjToRevert) {
+                    console.error(`Could not find tile object at board position (${r},${c}) for clicked DOM element.`);
+                    return;
+                }
                 
                 // Remove from board's internal state
                 board[r][c] = null;
 
                 // If it was a blank, clear its assigned letter
-                if (tileObjToRevert && tileObjToRevert.letter === '_') {
+                if (tileObjToRevert.letter === '_') {
                     tileObjToRevert.assignedLetterForTurn = null; // Clear temporary assignment
                     delete clickedTile.dataset.assignedLetter; // Remove from DOM dataset
                     clickedTile.querySelector('.tile-letter-display').textContent = ''; // Revert visual to blank
                 }
-                
+                playerRacks[currentPlayer].push(tileObjToRevert); // Add the tile object back to the rack
+
                 // Re-render the board cell to show bonus label if it had one
                 const cellElement = document.getElementById(`cell-${r}-${c}`);
                 cellElement.innerHTML = ''; // Clear the tile
@@ -1400,7 +1390,7 @@
 
                 renderRack(currentPlayer); // Re-render rack to show returned tile
                 playMP3Sound();
-                showMessageBox(`Tile returned to rack.`, 'info');
+                showMessageBox(`Tile ${tileObjToRevert.letter === '_' ? 'blank' : tileObjToRevert.letter} returned to rack.`, 'info');
             }
         }
 
@@ -1475,7 +1465,7 @@
                     const startRow = tilesToValidate[0].r;
                     const endRow = tilesToValidate[tilesToValidate.length - 1].r;
                     for (let r = startRow; r <= endRow; r++) {
-                         // Check if the cell is occupied by a new tile OR an existing board tile
+                             // Check if the cell is occupied by a new tile OR an existing board tile
                         const isOccupied = tilesToValidate.some(t => t.r === r && t.c === col) || currentBoard[r][col] !== null;
                         if (!isOccupied) {
                             return null; // Gap found in the word
@@ -1559,40 +1549,35 @@
             };
 
             let wordsToScore = [];
-            
-            // For each newly placed tile, check for perpendicular words
-            tilesToValidate.forEach(tile => {
-                const { r, c } = tile;
-                // If main word is horizontal, check for vertical words through this tile
-                if (isHorizontal) {
-                    const { word, wordTiles } = getFullWord(r, c, 'vertical', currentBoard);
-                    if (word.length > 1) {
-                        wordsToScore.push({ word, tiles: wordTiles });
-                    }
-                }
-                // If main word is vertical, check for horizontal words
-                if (isVertical) {
-                     const { word, wordTiles } = getFullWord(r, c, 'horizontal', currentBoard);
-                    if (word.length > 1) {
-                        wordsToScore.push({ word, tiles: wordTiles });
-                    }
-                }
-            });
 
+            // Determine the primary word(s) formed by the new tiles
+            const isSingleTile = tilesToValidate.length === 1;
+            const primaryTile = tilesToValidate[0];
 
-            // Add the main word itself
-            const mainWordDirection = isHorizontal ? 'horizontal' : 'vertical';
-            const { word: mainWord, wordTiles: mainWordTiles } = getFullWord(firstTileRow, firstTileCol, mainWordDirection, currentBoard);
-            if(mainWord.length > 1 || (mainWord.length === 1 && connectedToExisting) || isFirstMove) {
-                 wordsToScore.push({ word: mainWord, tiles: mainWordTiles });
+            if (isHorizontal) {
+                const { word, wordTiles } = getFullWord(primaryTile.r, primaryTile.c, 'horizontal', currentBoard);
+                // A single tile forms a valid word horizontally only if it connects to form a word of length > 1
+                if (wordTiles.length > (isSingleTile ? 1 : 0)) {
+                    wordsToScore.push({ word, tiles: wordTiles, direction: 'horizontal' });
+                }
             }
-           
+            if (isVertical) {
+                const { word, wordTiles } = getFullWord(primaryTile.r, primaryTile.c, 'vertical', currentBoard);
+                // Add vertical word if it's not the same word as the horizontal one (for single tile case)
+                if (wordTiles.length > (isSingleTile ? 1 : 0) && !(isSingleTile && isHorizontal && wordsToScore[0] && wordsToScore[0].word.toUpperCase() === word.toUpperCase())) {
+                    wordsToScore.push({ word, tiles: wordTiles, direction: 'vertical' });
+                }
+            }
+
+            if (wordsToScore.length === 0) {
+                     return null; // No valid words formed from initial placement, even if single tile.
+            }
+
             // Process all words formed (primary and perpendicular)
             for (const { word: currentWord, tiles: currentWordTiles } of wordsToScore) {
                 if (!VALID_WORDS.has(currentWord.toUpperCase())) {
                     return null; // Invalid word found
                 }
-                if(formedWords.has(currentWord)) continue; // Don't score the same word twice
                 formedWords.add(currentWord);
 
                 let wordScore = 0;
@@ -1629,11 +1614,14 @@
                 totalScore += wordScore;
             }
 
+            // Check for any new perpendicular words formed by the newly placed tiles
+            // This is already done implicitly by checking all primary words and any words created perpendicular to them.
+            // The previous logic for perpendicular words was redundant as getFullWord already captures all.
+
             // Scrabble bonus: 50 points if all 7 tiles are used
             if (tilesToValidate.length === RACK_SIZE) { // Check if all 7 rack tiles were used in this move
                 totalScore += 50;
             }
-            if (formedWords.size === 0) return null;
 
             return { score: totalScore, words: Array.from(formedWords) };
         }
@@ -1770,7 +1758,7 @@
             updateGameDisplay();
 
             // Check for game end condition (e.g., tile bag empty and a player's rack is empty)
-            if (tileBag.length === 0 && (playerRacks[0].length === 0 || playerRacks[1].length === 0)) {
+            if (tileBag.length === 0 && playerRacks[currentPlayer].length === 0) {
                 let winnerMessage;
                 if (playerScores[0] > playerScores[1]) {
                     winnerMessage = "Player 1 wins!";
@@ -1780,7 +1768,7 @@
                     winnerMessage = "It's a tie!";
                 }
 
-                showModal(`Game Over! Player 1: ${playerScores[0]} points, Player ${player2Label.textContent}: ${playerScores[1]} points. ${winnerMessage}`, () => {
+                showModal(`Game Over! Player 1: ${playerScores[0]} points, Player ${player2Label.textContent}: ${player2ScoreElement.textContent} points. ${winnerMessage}`, () => {
                     // After game over, return to main menu
                     gameWrapper.classList.add('hidden');
                     mainMenu.classList.remove('hidden');
@@ -2408,3 +2396,5 @@
     </script>
 </body>
 </html>
+
+
