@@ -71,7 +71,7 @@
             margin-bottom: 30px;
             position: relative; /* Ensure title is above the overlay */
             z-index: 2;
-             /* Enhanced 3D text shadow */
+            /* Enhanced 3D text shadow */
             text-shadow: 3px 3px 6px rgba(0,0,0,0.8), 
                          -1px -1px 2px rgba(255,255,255,0.2);
         }
@@ -105,7 +105,7 @@
             transition: background-color 0.3s ease, transform 0.1s ease, box-shadow 0.3s ease;
             /* Enhanced 3D box-shadow for buttons */
             box-shadow: 0 6px 12px rgba(0, 123, 255, 0.4), 
-                        0 2px 4px rgba(0, 123, 255, 0.2);
+                         0 2px 4px rgba(0, 123, 255, 0.2);
             text-align: center;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.5); /* Text shadow for button text */
         }
@@ -113,8 +113,8 @@
         .menu-button:hover {
             background-color: #0056b3;
             transform: translateY(-3px);
-            box-shadow: 0 8px 16px rgba(0, 123, 255, 0.5), 
-                        0 4px 8px rgba(0, 123, 255, 0.3);
+            box-shadow: 0 8px 16px rgba(0, 123, 255, 0.6), 
+                         0 4px 8px rgba(0, 123, 255, 0.3);
         }
 
         .menu-button:active {
@@ -290,7 +290,7 @@
             transition: background-color 0.3s ease, transform 0.1s ease, box-shadow 0.3s ease;
             /* Enhanced 3D box-shadow for game buttons */
             box-shadow: 0 5px 10px rgba(0, 123, 255, 0.5), 
-                        0 2px 4px rgba(0, 123, 255, 0.3);
+                         0 2px 4px rgba(0, 123, 255, 0.3);
             text-align: center;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.5); /* Text shadow for button text */
         }
@@ -299,7 +299,7 @@
             background-color: #0056b3;
             transform: translateY(-3px);
             box-shadow: 0 7px 14px rgba(0, 123, 255, 0.6), 
-                        0 3px 6px rgba(0, 123, 255, 0.4);
+                         0 3px 6px rgba(0, 123, 255, 0.4);
         }
 
         .game-button:active {
@@ -311,36 +311,36 @@
         .game-button.pass { 
             background-color: #6c757d; 
             box-shadow: 0 5px 10px rgba(108, 117, 125, 0.5), 
-                        0 2px 4px rgba(108, 117, 125, 0.3); 
+                         0 2px 4px rgba(108, 117, 125, 0.3); 
         }
         .game-button.pass:hover { 
             background-color: #5a6268; 
             box-shadow: 0 7px 14px rgba(108, 117, 125, 0.6), 
-                        0 3px 6px rgba(108, 117, 125, 0.4); 
+                         0 3px 6px rgba(108, 117, 125, 0.4); 
         }
 
         .game-button.shuffle { 
             background-color: #ffc107; 
             color: #333; 
             box-shadow: 0 5px 10px rgba(255, 193, 7, 0.5), 
-                        0 2px 4px rgba(255, 193, 7, 0.3); 
+                         0 2px 4px rgba(255, 193, 7, 0.3); 
             text-shadow: 1px 1px 2px rgba(0,0,0,0.5); 
         }
         .game-button.shuffle:hover { 
             background-color: #e0a800; 
             box-shadow: 0 7px 14px rgba(255, 193, 7, 0.6), 
-                        0 3px 6px rgba(255, 193, 7, 0.4); 
+                         0 3px 6px rgba(255, 193, 7, 0.4); 
         }
 
         .game-button.exchange { 
             background-color: #17a2b8; 
             box-shadow: 0 5px 10px rgba(23, 162, 184, 0.5), 
-                        0 2px 4px rgba(23, 162, 184, 0.3); 
+                         0 2px 4px rgba(23, 162, 184, 0.3); 
         }
         .game-button.exchange:hover { 
             background-color: #138496; 
             box-shadow: 0 7px 14px rgba(23, 162, 184, 0.6), 
-                        0 3px 6px rgba(23, 162, 184, 0.4); 
+                         0 3px 6px rgba(23, 162, 184, 0.4); 
         }
 
         .message-box {
@@ -406,7 +406,7 @@
             width: 80%;
             max-width: 500px;
             text-align: center;
-             /* Text shadow for modal content */
+            /* Text shadow for modal content */
             text-shadow: 0.5px 0.5px 1px rgba(0,0,0,0.2);
         }
 
@@ -445,7 +445,7 @@
 </head>
 <body>
     <div id="main-menu" class="main-menu">
-        <h1></h1> <!-- Restored title -->
+        <h1>Word Weaver</h1> <!-- Restored title -->
         <div class="menu-buttons-container">
             <button class="menu-button" id="one-player-btn">One Player (vs. AI)</button>
             <button class="menu-button" id="two-player-btn">Two Players</button>
@@ -780,6 +780,11 @@
 
 
         // --- Dictionary Loading ---
+
+        // This will be populated from an external file
+        let VALID_WORDS = new Set();
+        let isDictionaryLoaded = false;
+
         async function loadDictionary() {
             try {
                 // Adjust the path if your dictionary file is in a subfolder
@@ -1290,7 +1295,7 @@
                     const cellElement = document.getElementById(`cell-${oldRow}-${oldCol}`);
                     cellElement.innerHTML = ''; // Clear the tile from the cell DOM
                     const bonusType = currentBonusSquares[`${oldRow},${oldCol}`];
-                    if (bonusType) { cellElement.textContent = getBonusLabel(bonusType); } // Restore bonus label
+                    if (bonusType) { cellElement.textContent = getBonusLabel(bonusType); }
 
                     // Remove from placedTiles array
                     placedTiles = placedTiles.filter(p => p.tileElement !== draggedTile);
@@ -1311,7 +1316,7 @@
                 delete draggedTile.dataset.tempRow;
                 delete draggedTile.dataset.tempCol;
 
-                renderRack(currentPlayer); // Re-render rack to update DOM based on `playerRacks` array
+                renderRack(currentPlayer); // Re-render rack to show returned tile
                 playMP3Sound();
                 showMessageBox('Tile moved back to rack.', 'info');
 
@@ -1388,9 +1393,9 @@
                 delete clickedTile.dataset.tempRow;
                 delete clickedTile.dataset.tempCol;
 
-                renderRack(currentPlayer); // Re-render rack to show returned tile
+                renderRack(currentPlayer); // Re-render rack to show returned tiles
                 playMP3Sound();
-                showMessageBox(`Tile ${tileObjToRevert.letter === '_' ? 'blank' : tileObjToRevert.letter} returned to rack.`, 'info');
+                showMessageBox('Tile moved back to rack.', 'info');
             }
         }
 
@@ -1645,7 +1650,7 @@
             const tempPlacedTilesData = []; // Store simplified data for validation
 
             placedTiles.forEach(pTile => {
-                const { r, c, tileObj } = pTile; // Get tile object from our placedTiles structure
+                const { r, c, tileObj, tileElement } = pTile; // Get tile object from our placedTiles structure
                 // The letter used for word formation is the assigned letter if blank, else original letter
                 const effectiveLetter = tileObj.assignedLetterForTurn || tileObj.letter;
 
@@ -1657,7 +1662,12 @@
                 };
 
                 // This array for validateAndScoreWords just needs effective letter and points
-                tempPlacedTilesData.push({ r, c, letter: effectiveLetter, points: tileObj.points });
+                tempPlacedTilesData.push({
+                    r: r,
+                    c: c,
+                    letter: effectiveLetter, // The letter that forms the word
+                    points: tileObj.points // Points are always from the original tile
+                });
             });
 
             const result = validateAndScoreWords(tempBoard, tempPlacedTilesData);
@@ -1669,8 +1679,20 @@
                 // Play sounds based on score
                 if (result.score >= 100) {
                     playHundredPointsSound();
+                    // Award badge for 100 points or more
+                    if (window.parent && typeof window.parent.awardBadge === 'function') {
+                        window.parent.awardBadge('wordweaver100points', 'Word Weaver 100 Points');
+                    } else {
+                        console.warn("Parent window's awardBadge function not found.");
+                    }
                 } else if (result.score >= 50) {
                     playFiftyPointsSound();
+                    // Award badge for 50 points or more
+                    if (window.parent && typeof window.parent.awardBadge === 'function') {
+                        window.parent.awardBadge('wordweaver50points', 'Word Weaver 50 Points');
+                    } else {
+                        console.warn("Parent window's awardBadge function not found.");
+                    }
                 } else {
                     playGotWordSound(); 
                 }
@@ -1699,7 +1721,7 @@
                     // Visually update the cell to show no bonus label underneath permanent tile
                     const cellElement = document.getElementById(`cell-${r}-${c}`);
                     if (cellElement) {
-                        cellElement.textContent = ''; // Clear label
+                        cellElement.innerHTML = ''; // Clear label
                         cellElement.appendChild(tileElement); // Re-append the tile to keep it in the DOM
                     }
                 });
@@ -1745,7 +1767,8 @@
                 delete tileElement.dataset.tempCol;
 
                 renderRack(currentPlayer); // Re-render rack to show returned tiles
-                showMessageBox('Tiles reverted to rack.', 'info');
+                playMP3Sound();
+                showMessageBox('Tile moved back to rack.', 'info');
             });
             placedTiles = []; // Clear placed tiles
         }
@@ -1932,7 +1955,7 @@
 
             ALPHABET.split('').forEach(char => {
                 const letterButton = document.createElement('button');
-                letterButton.classList.add('menu-button', 'w-12', 'h-12', 'flex', 'items-center', 'justify-center', 'text-xl', 'm-1'); // Adjusted for small buttons
+                letterButton.classList.add('menu-button', 'w-12', 'h-12', 'flex', 'items-center', 'justify-content-center', 'text-xl', 'm-1'); // Adjusted for small buttons
                 letterButton.textContent = char;
                 letterButton.addEventListener('click', () => {
                     onLetterSelected(char);
@@ -2225,176 +2248,4 @@
                     const playedTilesInfo = chosenMove.tiles; // These are the {r,c, letter (effective), points}
                     const tilesToRemoveFromRack = chosenMove.rackUsed; // These are the actual tile objects from AI's rack
 
-                    // Remove played tiles from AI's actual rack (use the original objects)
-                    tilesToRemoveFromRack.forEach(playedTileObj => {
-                        const index = playerRacks[currentPlayer].indexOf(playedTileObj);
-                        if (index > -1) {
-                            playerRacks[currentPlayer].splice(index, 1);
-                        }
-                    });
-
-                    // Place tiles on board permanently
-                    playedTilesInfo.forEach(tileData => {
-                        // Find the original tile object that was used for this tileData entry
-                        // This assumes `chosenMove.rackUsed` contains the *exact* objects from `playerRacks[currentPlayer]`
-                        const originalTileObj = tilesToRemoveFromRack.find(t =>
-                            (t.letter === '_' && t.assignedLetterForTurn === tileData.letter) || // Blank matched by assigned letter
-                            (t.letter === tileData.letter && t.points === tileData.points) // Regular tile
-                        );
-
-                        board[tileData.r][tileData.c] = {
-                            letter: originalTileObj ? originalTileObj.letter : tileData.letter, // Original _ or letter
-                            points: originalTileObj ? originalTileObj.points : tileData.points, // Original 0 for _
-                            assignedLetter: originalTileObj ? originalTileObj.assignedLetterForTurn : null // Assigned letter if blank
-                        };
-                        // Clear the temporary assignedLetterForTurn from the original object
-                        if (originalTileObj && originalTileObj.letter === '_') {
-                            originalTileObj.assignedLetterForTurn = null;
-                        }
-
-                        const cellElement = document.getElementById(`cell-${tileData.r}-${tileData.c}`);
-                        cellElement.innerHTML = ''; // Clear existing bonus label
-                        // Create a new DOM tile element for the permanent board tile
-                        const permanentTileElement = createTileElement(board[tileData.r][tileData.c]);
-                        permanentTileElement.dataset.permanent = 'true';
-                        permanentTileElement.draggable = false;
-                        permanentTileElement.removeEventListener('click', handleTileClick);
-                        cellElement.appendChild(permanentTileElement);
-                    });
-
-                    playerScores[currentPlayer] += chosenMove.score;
-                    showMessageBox(`AI played: ${chosenMove.word} for ${chosenMove.score} points!`, 'success');
-                    
-                    if (chosenMove.score >= 100) {
-                        playHundredPointsSound();
-                    } else if (chosenMove.score >= 50) {
-                        playFiftyPointsSound();
-                    } else {
-                        playGotWordSound();
-                    }
-
-                    // Draw new tiles for AI
-                    drawTilesToRack(currentPlayer, RACK_SIZE - playerRacks[currentPlayer].length);
-                    endTurn();
-                } else {
-                    // If no scoring move is found, then exchange tiles if possible (for Hard), otherwise pass
-                    if (aiDifficulty === 'hard' && tileBag.length >= 1) { // AI can exchange any number of tiles, even 1, if no good move
-                        const tilesToExchangeCount = Math.min(aiRack.length, tileBag.length);
-                        if (tilesToExchangeCount > 0) {
-                            showMessageBox(`AI exchanges ${tilesToExchangeCount} tiles (Hard mode - no scoring word found).`, 'info');
-                            // Select a random set of tiles to exchange for hard AI
-                            shuffleArray(aiRack); // Shuffle to pick random tiles
-                            const exchangedTiles = aiRack.splice(0, tilesToExchangeCount);
-                            exchangedTiles.forEach(tile => {
-                                tileBag.push(tile);
-                                if (tile.letter === '_') tile.assignedLetterForTurn = null; // Clear assignment
-                            });
-                            shuffleArray(tileBag);
-                            drawTilesToRack(currentPlayer, tilesToExchangeCount);
-                            endTurn(); // End turn after exchange
-                            return;
-                        }
-                    }
-                    showMessageBox(`AI passes its turn (${aiDifficulty} mode - no scoring word found).`, 'info');
-                    endTurn();
-                }
-            }, 1500); // Simulate AI thinking time
-        }
-
-
-        // --- Event Listeners ---
-        submitWordBtn.addEventListener('click', submitWord);
-        passTurnBtn.addEventListener('click', () => {
-            if (gameMode === 'one-player' && currentPlayer === 1) {
-                showMessageBox("You can't pass for it.", 'error');
-                return;
-            }
-            if (placedTiles.length > 0) {
-                showModal('You have tiles on the board. Do you want to pass your turn and return them to your rack?', () => {
-                    revertPlacedTiles();
-                    endTurn();
-                });
-            } else {
-                showModal('Are you sure you want to pass your turn?', () => {
-                    endTurn();
-                });
-            }
-        });
-        shuffleTilesBtn.addEventListener('click', shuffleRack);
-        exchangeTilesBtn.addEventListener('click', showExchangeModal); // Call showExchangeModal directly
-        newGameBtn.addEventListener('click', () => {
-            showModal('Are you sure you want to start a new game? Current progress will be lost.', () => {
-                gameWrapper.classList.add('hidden');
-                mainMenu.classList.remove('hidden');
-            });
-        });
-
-        // Main Menu Button Listeners
-        onePlayerBtn.addEventListener('click', () => {
-            if (!isDictionaryLoaded) { showMessageBox('Dictionary still loading. Please wait.', 'info'); return; }
-            mainMenu.classList.add('hidden');
-            difficultyMenu.classList.remove('hidden');
-        });
-
-        twoPlayerBtn.addEventListener('click', () => {
-            if (!isDictionaryLoaded) { showMessageBox('Dictionary still loading. Please wait.', 'info'); return; }
-            gameMode = 'two-player';
-            mainMenu.classList.add('hidden');
-            gameWrapper.classList.remove('hidden');
-            initializeGame();
-        });
-
-        // Difficulty Menu Button Listeners
-        difficultyEasyBtn.addEventListener('click', () => {
-            aiDifficulty = 'easy';
-            gameMode = 'one-player';
-            difficultyMenu.classList.add('hidden');
-            gameWrapper.classList.remove('hidden');
-            initializeGame();
-        });
-
-        difficultyMediumBtn.addEventListener('click', () => {
-            aiDifficulty = 'medium';
-            gameMode = 'one-player';
-            difficultyMenu.classList.add('hidden');
-            gameWrapper.classList.remove('hidden');
-            initializeGame();
-        });
-
-        difficultyHardBtn.addEventListener('click', () => {
-            aiDifficulty = 'hard';
-            gameMode = 'one-player';
-            difficultyMenu.classList.add('hidden');
-            gameWrapper.classList.remove('hidden');
-            initializeGame();
-        });
-
-        difficultyBackBtn.addEventListener('click', () => {
-            difficultyMenu.classList.add('hidden');
-            mainMenu.classList.remove('hidden');
-        });
-
-        // Event listeners for the new exchange modal
-        confirmExchangeBtn.addEventListener('click', confirmExchange);
-        cancelExchangeBtn.addEventListener('click', cancelExchange);
-        closeExchangeModalBtn.addEventListener('click', cancelExchange);
-        exchangeModal.addEventListener('click', (event) => {
-            if (event.target === exchangeModal) {
-                cancelExchange();
-            }
-        });
-
-
-        // --- Initial Setup ---
-        // Load the dictionary as soon as the DOM is ready
-        document.addEventListener('DOMContentLoaded', () => {
-            showMessageBox('Loading dictionary, please wait...', 'info');
-            onePlayerBtn.disabled = true; // Disable buttons until dictionary is loaded
-            twoPlayerBtn.disabled = true;
-            loadDictionary();
-        });
-    </script>
-</body>
-</html>
-
-
+                    // Remove played tiles from AI's actual rack (
