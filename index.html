@@ -114,7 +114,7 @@
             background-color: #0056b3;
             transform: translateY(-3px);
             box-shadow: 0 8px 16px rgba(0, 123, 255, 0.6), 
-                         0 4px 8px rgba(0, 123, 255, 0.3);
+                         0 3px 6px rgba(0, 123, 255, 0.4);
         }
 
         .menu-button:active {
@@ -1814,7 +1814,7 @@
          */
         function shuffleRack() {
             if (gameMode === 'one-player' && currentPlayer === 1) {
-                showMessageBox("AI can't shuffle its rack. It plays automatically.", 'info');
+                showMessageBox("AI can't shuffle its rack. It plays automatically.", 'error');
                 return;
             }
             if (!isDictionaryLoaded) { showMessageBox('Dictionary still loading. Please wait.', 'info'); return; }
@@ -1827,6 +1827,12 @@
          * Shows the modal for selecting tiles to exchange.
          */
         function showExchangeModal() {
+            if (gameMode === 'one-player' && currentPlayer === 1) {
+                showMessageBox("AI can't exchange tiles manually.", 'error');
+                return;
+            }
+            if (!isDictionaryLoaded) { showMessageBox('Dictionary still loading. Please wait.', 'info'); return; }
+            
             // First, revert any tiles currently on the board, as exchange happens from the rack
             if (placedTiles.length > 0) {
                 revertPlacedTiles();
@@ -1955,7 +1961,7 @@
 
             ALPHABET.split('').forEach(char => {
                 const letterButton = document.createElement('button');
-                letterButton.classList.add('menu-button', 'w-12', 'h-12', 'flex', 'items-center', 'justify-content-center', 'text-xl', 'm-1'); // Adjusted for small buttons
+                letterButton.classList.add('menu-button', 'w-12', 'h-12', 'flex', 'items-center', 'justify-center', 'text-xl', 'm-1'); // Adjusted for small buttons
                 letterButton.textContent = char;
                 letterButton.addEventListener('click', () => {
                     onLetterSelected(char);
@@ -2248,4 +2254,174 @@
                     const playedTilesInfo = chosenMove.tiles; // These are the {r,c, letter (effective), points}
                     const tilesToRemoveFromRack = chosenMove.rackUsed; // These are the actual tile objects from AI's rack
 
-                    // Remove played tiles from AI's actual rack (
+                    // Remove played tiles from AI's actual rack (use the original objects)
+                    tilesToRemoveFromRack.forEach(playedTileObj => {
+                        const index = playerRacks[currentPlayer].indexOf(playedTileObj);
+                        if (index > -1) {
+                            playerRacks[currentPlayer].splice(index, 1);
+                        }
+                    });
+
+                    // Place tiles on board permanently
+                    playedTilesInfo.forEach(tileData => {
+                        // Find the original tile object that was used for this tileData entry
+                        // This assumes `chosenMove.rackUsed` contains the *exact* objects from `playerRacks[currentPlayer]`
+                        const originalTileObj = tilesToRemoveFromRack.find(t =>
+                            (t.letter === '_' && t.assignedLetterForTurn === tileData.letter) || // Blank matched by assigned letter
+                            (t.letter === tileData.letter && t.points === tileData.points) // Regular tile
+                        );
+
+                        board[tileData.r][tileData.c] = {
+                            letter: originalTileObj ? originalTileObj.letter : tileData.letter, // Original _ or letter
+                            points: originalTileObj ? originalTileObj.points : tileData.points, // Original 0 for _
+                            assignedLetter: originalTileObj ? originalTileObj.assignedLetterForTurn : null // Assigned letter if blank
+                        };
+                        // Clear the temporary assignedLetterForTurn from the original object
+                        if (originalTileObj && originalTileObj.letter === '_') {
+                            originalTileObj.assignedLetterForTurn = null;
+                        }
+
+                        const cellElement = document.getElementById(`cell-${tileData.r}-${tileData.c}`);
+                        cellElement.innerHTML = ''; // Clear existing bonus label
+                        // Create a new DOM tile element for the permanent board tile
+                        const permanentTileElement = createTileElement(board[tileData.r][tileData.c]);
+                        permanentTileElement.dataset.permanent = 'true';
+                        permanentTileElement.draggable = false;
+                        permanentTileElement.removeEventListener('click', handleTileClick);
+                        cellElement.appendChild(permanentTileElement);
+                    });
+
+                    playerScores[currentPlayer] += chosenMove.score;
+                    showMessageBox(`AI played: ${chosenMove.word} for ${chosenMove.score} points!`, 'success');
+                    
+                    if (chosenMove.score >= 100) {
+                        playHundredPointsSound();
+                    } else if (chosenMove.score >= 50) {
+                        playFiftyPointsSound();
+                    } else {
+                        playGotWordSound();
+                    }
+
+                    // Draw new tiles for AI
+                    drawTilesToRack(currentPlayer, RACK_SIZE - playerRacks[currentPlayer].length);
+                    endTurn();
+                } else {
+                    // If no scoring move is found, then exchange tiles if possible (for Hard), otherwise pass
+                    if (aiDifficulty === 'hard' && tileBag.length >= 1) { // AI can exchange any number of tiles, even 1, if no good move
+                        const tilesToExchangeCount = Math.min(aiRack.length, tileBag.length);
+                        if (tilesToExchangeCount > 0) {
+                            showMessageBox(`AI exchanges ${tilesToExchangeCount} tiles (Hard mode - no scoring word found).`, 'info');
+                            // Select a random set of tiles to exchange for hard AI
+                            shuffleArray(aiRack); // Shuffle to pick random tiles
+                            const exchangedTiles = aiRack.splice(0, tilesToExchangeCount);
+                            exchangedTiles.forEach(tile => {
+                                tileBag.push(tile);
+                                if (tile.letter === '_') tile.assignedLetterForTurn = null; // Clear assignment
+                            });
+                            shuffleArray(tileBag);
+                            drawTilesToRack(currentPlayer, tilesToExchangeCount);
+                            endTurn(); // End turn after exchange
+                            return;
+                        }
+                    }
+                    showMessageBox(`AI passes its turn (${aiDifficulty} mode - no scoring word found).`, 'info');
+                    endTurn();
+                }
+            }, 1500); // Simulate AI thinking time
+        }
+
+
+        // --- Event Listeners ---
+        submitWordBtn.addEventListener('click', submitWord);
+        passTurnBtn.addEventListener('click', () => {
+            if (gameMode === 'one-player' && currentPlayer === 1) {
+                showMessageBox("You can't pass for it.", 'error');
+                return;
+            }
+            if (placedTiles.length > 0) {
+                showModal('You have tiles on the board. Do you want to pass your turn and return them to your rack?', () => {
+                    revertPlacedTiles();
+                    endTurn();
+                });
+            } else {
+                showModal('Are you sure you want to pass your turn?', () => {
+                    endTurn();
+                });
+            }
+        });
+        shuffleTilesBtn.addEventListener('click', shuffleRack);
+        exchangeTilesBtn.addEventListener('click', showExchangeModal); // Call showExchangeModal directly
+        newGameBtn.addEventListener('click', () => {
+            showModal('Are you sure you want to start a new game? Current progress will be lost.', () => {
+                gameWrapper.classList.add('hidden');
+                mainMenu.classList.remove('hidden');
+            });
+        });
+
+        // Main Menu Button Listeners
+        onePlayerBtn.addEventListener('click', () => {
+            if (!isDictionaryLoaded) { showMessageBox('Dictionary still loading. Please wait.', 'info'); return; }
+            mainMenu.classList.add('hidden');
+            difficultyMenu.classList.remove('hidden');
+        });
+
+        twoPlayerBtn.addEventListener('click', () => {
+            if (!isDictionaryLoaded) { showMessageBox('Dictionary still loading. Please wait.', 'info'); return; }
+            gameMode = 'two-player';
+            mainMenu.classList.add('hidden');
+            gameWrapper.classList.remove('hidden');
+            initializeGame();
+        });
+
+        // Difficulty Menu Button Listeners
+        difficultyEasyBtn.addEventListener('click', () => {
+            aiDifficulty = 'easy';
+            gameMode = 'one-player';
+            difficultyMenu.classList.add('hidden');
+            gameWrapper.classList.remove('hidden');
+            initializeGame();
+        });
+
+        difficultyMediumBtn.addEventListener('click', () => {
+            aiDifficulty = 'medium';
+            gameMode = 'one-player';
+            difficultyMenu.classList.add('hidden');
+            gameWrapper.classList.remove('hidden');
+            initializeGame();
+        });
+
+        difficultyHardBtn.addEventListener('click', () => {
+            aiDifficulty = 'hard';
+            gameMode = 'one-player';
+            difficultyMenu.classList.add('hidden');
+            gameWrapper.classList.remove('hidden');
+            initializeGame();
+        });
+
+        difficultyBackBtn.addEventListener('click', () => {
+            difficultyMenu.classList.add('hidden');
+            mainMenu.classList.remove('hidden');
+        });
+
+        // Event listeners for the new exchange modal
+        confirmExchangeBtn.addEventListener('click', confirmExchange);
+        cancelExchangeBtn.addEventListener('click', cancelExchange);
+        closeExchangeModalBtn.addEventListener('click', cancelExchange);
+        exchangeModal.addEventListener('click', (event) => {
+            if (event.target === exchangeModal) {
+                cancelExchange();
+            }
+        });
+
+
+        // --- Initial Setup ---
+        // Load the dictionary as soon as the DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            showMessageBox('Loading dictionary, please wait...', 'info');
+            onePlayerBtn.disabled = true; // Disable buttons until dictionary is loaded
+            twoPlayerBtn.disabled = true;
+            loadDictionary();
+        });
+    </script>
+</body>
+</html>
