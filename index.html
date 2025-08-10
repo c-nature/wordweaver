@@ -73,13 +73,13 @@
             z-index: 2;
              /* Enhanced 3D text shadow */
             text-shadow: 3px 3px 6px rgba(0,0,0,0.8), 
-                         -1px -1px 2px rgba(255,255,255,0.2);
+                                 -1px -1px 2px rgba(255,255,255,0.2);
         }
         /* For the main menu's h1, let's make it white for better contrast */
         .main-menu h1 {
             color: white;
             text-shadow: 3px 3px 6px rgba(0,0,0,0.7), 
-                         -1px -1px 2px rgba(255,255,255,0.3); /* Lighter shadow for white text */
+                                 -1px -1px 2px rgba(255,255,255,0.3); /* Lighter shadow for white text */
         }
 
 
@@ -105,7 +105,7 @@
             transition: background-color 0.3s ease, transform 0.1s ease, box-shadow 0.3s ease;
             /* Enhanced 3D box-shadow for buttons */
             box-shadow: 0 6px 12px rgba(0, 123, 255, 0.4), 
-                        0 2px 4px rgba(0, 123, 255, 0.2);
+                                 0 2px 4px rgba(0, 123, 255, 0.2);
             text-align: center;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.5); /* Text shadow for button text */
         }
@@ -114,7 +114,7 @@
             background-color: #0056b3;
             transform: translateY(-3px);
             box-shadow: 0 8px 16px rgba(0, 123, 255, 0.5), 
-                        0 4px 8px rgba(0, 123, 255, 0.3);
+                                 0 4px 8px rgba(0, 123, 255, 0.3);
         }
 
         .menu-button:active {
@@ -290,7 +290,7 @@
             transition: background-color 0.3s ease, transform 0.1s ease, box-shadow 0.3s ease;
             /* Enhanced 3D box-shadow for game buttons */
             box-shadow: 0 5px 10px rgba(0, 123, 255, 0.5), 
-                        0 2px 4px rgba(0, 123, 255, 0.3);
+                                 0 2px 4px rgba(0, 123, 255, 0.3);
             text-align: center;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.5); /* Text shadow for button text */
         }
@@ -299,7 +299,7 @@
             background-color: #0056b3;
             transform: translateY(-3px);
             box-shadow: 0 7px 14px rgba(0, 123, 255, 0.6), 
-                        0 3px 6px rgba(0, 123, 255, 0.4);
+                                 0 3px 6px rgba(0, 123, 255, 0.4);
         }
 
         .game-button:active {
@@ -311,36 +311,37 @@
         .game-button.pass { 
             background-color: #6c757d; 
             box-shadow: 0 5px 10px rgba(108, 117, 125, 0.5), 
-                        0 2px 4px rgba(108, 117, 125, 0.3); 
+                                 0 2px 4px rgba(108, 117, 125, 0.3); 
         }
         .game-button.pass:hover { 
             background-color: #5a6268; 
             box-shadow: 0 7px 14px rgba(108, 117, 125, 0.6), 
-                        0 3px 6px rgba(108, 117, 125, 0.4); 
+                                 0 3px 6px rgba(108, 117, 125, 0.4); 
         }
 
         .game-button.shuffle { 
             background-color: #ffc107; 
             color: #333; 
             box-shadow: 0 5px 10px rgba(255, 193, 7, 0.5), 
-                        0 2px 4px rgba(255, 193, 7, 0.3); 
+                                 0 2px 4px rgba(255, 193, 7, 0.3); 
             text-shadow: 1px 1px 2px rgba(0,0,0,0.5); 
         }
         .game-button.shuffle:hover { 
             background-color: #e0a800; 
             box-shadow: 0 7px 14px rgba(255, 193, 7, 0.6), 
-                        0 3px 6px rgba(255, 193, 7, 0.4); 
+                                 0 3px 6px rgba(255, 193, 7, 0.4); 
         }
 
         .game-button.exchange { 
             background-color: #17a2b8; 
             box-shadow: 0 5px 10px rgba(23, 162, 184, 0.5), 
-                        0 2px 4px rgba(23, 162, 184, 0.3); 
+                                 0 2px 4px rgba(23, 162, 184, 0.3); 
         }
         .game-button.exchange:hover { 
             background-color: #138496; 
+            transform: translateY(-3px); 
             box-shadow: 0 7px 14px rgba(23, 162, 184, 0.6), 
-                        0 3px 6px rgba(23, 162, 184, 0.4); 
+                                 0 3px 6px rgba(23, 162, 184, 0.4); 
         }
 
         .message-box {
@@ -627,6 +628,22 @@
 
         // Flag to ensure dictionary is loaded before starting a game
         let isDictionaryLoaded = false;
+        
+        // Flags to track if badges have been awarded for the current game session
+        const badgesAwarded = {
+            easyWin: false,
+            mediumWin: false,
+            hardWin: false,
+            highScorer: false,
+            grandSlam: false,
+            rackAttack: false,
+        };
+        // Object to map AI difficulty to badge names
+        const difficultyBadges = {
+            'easy': 'wordweavereasy',
+            'medium': 'wordweavermedium',
+            'hard': 'wordweaverhard',
+        };
 
         // --- Audio Functions ---
         const tileClickAudio = document.getElementById('tileClickSound');
@@ -780,26 +797,24 @@
 
 
         // --- Dictionary Loading ---
+
+        // Added this function from the previous context to ensure it exists.
         async function loadDictionary() {
             try {
-                // Adjust the path if your dictionary file is in a subfolder
                 const response = await fetch('scrabble_dictionary.txt');
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const text = await response.text();
-                // Split by newline, filter out empty lines, and convert to uppercase
                 const words = text.split('\n').map(word => word.trim().toUpperCase()).filter(word => word.length > 0);
                 VALID_WORDS = new Set(words);
                 isDictionaryLoaded = true;
                 showMessageBox(`Dictionary loaded with ${VALID_WORDS.size} words!`, 'success');
-                // Enable game start buttons after dictionary loads
                 onePlayerBtn.disabled = false;
                 twoPlayerBtn.disabled = false;
             } catch (error) {
                 console.error("Failed to load dictionary:", error);
                 showMessageBox("Error: Failed to load dictionary. Game cannot start. Check console for details.", 'error');
-                // Disable game start buttons if dictionary fails to load
                 onePlayerBtn.disabled = true;
                 twoPlayerBtn.disabled = true;
             }
@@ -1011,6 +1026,11 @@
             currentPlayer = 0;
             placedTiles = [];
 
+            // Reset badges for this session
+            for (const key in badgesAwarded) {
+                badgesAwarded[key] = false;
+            }
+
             createTileBag();
             generateRandomBonusSquares(); // Generate new bonus squares for this game
             drawTilesToRack(0, RACK_SIZE); // Player 1 draws tiles
@@ -1131,7 +1151,7 @@
                     }
                 }
                 showMessageBox('Invalid drop target or operation.', 'error');
-                // Clear drag state on invalid drop to prevent issues with subsequent drags.
+                // Clear drag state on invalid drop
                 draggedTile = null;
                 draggedTileData = null;
                 originalParent = null;
@@ -1217,7 +1237,7 @@
                         if (originalParent) {
                             originalParent.appendChild(draggedTile);
                             draggedTileData.assignedLetterForTurn = null; // Clear assignment
-                            draggedTile.querySelector('.tile-letter-display').textContent = ''; // Clear visual
+                            draggedTile.querySelector('.tile-letter-display').textContent = ''; // Revert visual to blank
                             delete draggedTile.dataset.assignedLetter;
                             showMessageBox('Blank tile placement cancelled. Returned to rack.', 'info');
                         } else {
@@ -1311,7 +1331,7 @@
                 delete draggedTile.dataset.tempRow;
                 delete draggedTile.dataset.tempCol;
 
-                renderRack(currentPlayer); // Re-render rack to update DOM based on `playerRacks` array
+                renderRack(currentPlayer); // Re-render rack to show returned tile
                 playMP3Sound();
                 showMessageBox('Tile moved back to rack.', 'info');
 
@@ -1465,7 +1485,7 @@
                     const startRow = tilesToValidate[0].r;
                     const endRow = tilesToValidate[tilesToValidate.length - 1].r;
                     for (let r = startRow; r <= endRow; r++) {
-                             // Check if the cell is occupied by a new tile OR an existing board tile
+                                 // Check if the cell is occupied by a new tile OR an existing board tile
                         const isOccupied = tilesToValidate.some(t => t.r === r && t.c === col) || currentBoard[r][col] !== null;
                         if (!isOccupied) {
                             return null; // Gap found in the word
@@ -1570,7 +1590,7 @@
             }
 
             if (wordsToScore.length === 0) {
-                     return null; // No valid words formed from initial placement, even if single tile.
+                      return null; // No valid words formed from initial placement, even if single tile.
             }
 
             // Process all words formed (primary and perpendicular)
@@ -1657,7 +1677,12 @@
                 };
 
                 // This array for validateAndScoreWords just needs effective letter and points
-                tempPlacedTilesData.push({ r, c, letter: effectiveLetter, points: tileObj.points });
+                tempPlacedTilesData.push({
+                    r: currentRow,
+                    c: currentCol,
+                    letter: effectiveLetter,
+                    points: tileObj.points
+                });
             });
 
             const result = validateAndScoreWords(tempBoard, tempPlacedTilesData);
@@ -1674,6 +1699,22 @@
                 } else {
                     playGotWordSound(); 
                 }
+
+                // Award badges based on score and number of tiles used
+                if (window.parent && typeof window.parent.awardBadge === 'function') {
+                    if (result.score >= 100 && !badgesAwarded.grandSlam) {
+                        window.parent.awardBadge('wordweaver100points', 'Grand Slam');
+                        badgesAwarded.grandSlam = true;
+                    } else if (result.score >= 50 && !badgesAwarded.highScorer) {
+                        window.parent.awardBadge('wordweaver50points', 'High Scorer');
+                        badgesAwarded.highScorer = true;
+                    }
+                    if (placedTiles.length === RACK_SIZE && !badgesAwarded.rackAttack) {
+                        window.parent.awardBadge('rackattack', 'RACKATTACK');
+                        badgesAwarded.rackAttack = true;
+                    }
+                }
+
 
                 // Make placed tiles permanent on the actual board and DOM
                 placedTiles.forEach(pTile => {
@@ -1754,21 +1795,38 @@
          * Ends the current player's turn and switches to the next player.
          */
         function endTurn() {
-            currentPlayer = (currentPlayer + 1) % 2;
-            updateGameDisplay();
-
             // Check for game end condition (e.g., tile bag empty and a player's rack is empty)
             if (tileBag.length === 0 && playerRacks[currentPlayer].length === 0) {
                 let winnerMessage;
-                if (playerScores[0] > playerScores[1]) {
+                const player1Score = playerScores[0];
+                const player2Score = playerScores[1];
+
+                if (player1Score > player2Score) {
                     winnerMessage = "Player 1 wins!";
-                } else if (playerScores[1] > playerScores[0]) {
+                } else if (player2Score > player1Score) {
                     winnerMessage = `${gameMode === 'one-player' ? 'AI' : 'Player 2'} wins!`;
                 } else {
                     winnerMessage = "It's a tie!";
                 }
-
-                showModal(`Game Over! Player 1: ${playerScores[0]} points, Player ${player2Label.textContent}: ${player2ScoreElement.textContent} points. ${winnerMessage}`, () => {
+                
+                // Award the AI difficulty badge to the winner (human player)
+                if (gameMode === 'one-player' && player1Score > player2Score) {
+                    const badgeName = difficultyBadges[aiDifficulty];
+                    if (window.parent && typeof window.parent.awardBadge === 'function' && !badgesAwarded.easyWin && aiDifficulty === 'easy') {
+                        window.parent.awardBadge(badgeName, 'Word Weaver Easy');
+                        badgesAwarded.easyWin = true;
+                    }
+                    if (window.parent && typeof window.parent.awardBadge === 'function' && !badgesAwarded.mediumWin && aiDifficulty === 'medium') {
+                        window.parent.awardBadge(badgeName, 'Word Weaver Medium');
+                        badgesAwarded.mediumWin = true;
+                    }
+                    if (window.parent && typeof window.parent.awardBadge === 'function' && !badgesAwarded.hardWin && aiDifficulty === 'hard') {
+                        window.parent.awardBadge(badgeName, 'Word Weaver Hard');
+                        badgesAwarded.hardWin = true;
+                    }
+                }
+                
+                showModal(`Game Over! Player 1: ${player1Score} points, Player ${player2Label.textContent}: ${player2Score} points. ${winnerMessage}`, () => {
                     // After game over, return to main menu
                     gameWrapper.classList.add('hidden');
                     mainMenu.classList.remove('hidden');
@@ -1779,6 +1837,9 @@
                 // but as a safeguard, if any tiles somehow remain, they should be cleared.
                 revertPlacedTiles();
             }
+
+            currentPlayer = (currentPlayer + 1) % 2;
+            updateGameDisplay();
 
             // If it's AI's turn in one-player mode
             if (gameMode === 'one-player' && currentPlayer === 1) {
