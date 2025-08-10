@@ -123,9 +123,11 @@
             background-color: #004085;
         }
 
-        /* New layout for the main game screen */
         .game-wrapper {
-            flex-direction: column; /* Stack elements vertically */
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
         }
 
         .game-header {
@@ -567,18 +569,19 @@
         // Board stores objects {letter, points, assignedLetter?} for permanent tiles
         // and for temporarily placed tiles during the current turn.
         let board = Array(BOARD_SIZE).fill(null).map(() => Array(BOARD_SIZE).fill(null));
-        // playerRacks store objects {letter, points, assignedLetterForTurn?}
+        // playerRacks store objects {letter, points, assignedLetter?}
         let playerRacks = [[], []];
         let playerScores = [0, 0];
         let currentPlayer = 0; // 0 for Player 1, 1 for Player 2
         let gameMode = 'two-player'; // 'one-player' or 'two-player'
         let aiDifficulty = 'easy'; // 'easy', 'medium', 'hard'
+
         let currentBonusSquares = {}; // Will be generated per game
 
         let draggedTile = null; // The DOM element being dragged
         let draggedTileData = null; // The actual tile object from playerRacks being dragged
         let originalParent = null; // To put tile back if invalid move
-        // placedTiles stores { r, c, tileObj: {letter, points, assignedLetterForTurn?}, tileElement: DOM_ELEMENT }
+        // placedTiles stores { r, c, tileObj: {letter, points, assignedLetter?}, tileElement: DOM_ELEMENT }
         let placedTiles = []; // Tiles placed in the current turn for validation
 
         // DOM Elements
@@ -627,6 +630,14 @@
 
         // Flag to ensure dictionary is loaded before starting a game
         let isDictionaryLoaded = false;
+        
+        // --- Badge tracking flags (new) ---
+        let hasScored50Points = false;
+        let hasScored100Points = false;
+        let hasWonEasy = false;
+        let hasWonMedium = false;
+        let hasWonHard = false;
+        let hasRackAttack = false;
 
         // --- Audio Functions ---
         const tileClickAudio = document.getElementById('tileClickSound');
@@ -634,66 +645,57 @@
         const notWordAudio = document.getElementById('notWordSound');
         const fiftyPointsAudio = document.getElementById('fiftyPointsSound'); // New audio element
         const hundredPointsAudio = document.getElementById('hundredPointsSound'); // New audio element
+        const badgeSoundAudio = window.parent.document.getElementById('badgeSoundElement');
 
+
+        /**
+         * Plays a sound from the audio element.
+         * @param {HTMLAudioElement} audioElement The audio element to play.
+         * @param {number} volume The volume level (0.0 to 1.0).
+         */
+        function playSound(audioElement, volume = 0.5) {
+            if (audioElement) {
+                audioElement.currentTime = 0; // Rewind to the start
+                audioElement.volume = volume; // Set volume
+                audioElement.play().catch(e => console.warn("Error playing sound:", e));
+            } else {
+                console.warn("Audio element not found.");
+            }
+        }
+        
         /**
          * Plays the tile click sound from the audio element.
          */
         function playMP3Sound() {
-            if (tileClickAudio) {
-                // Ensure the audio is loaded and can be played
-                tileClickAudio.load(); // Reload to ensure it's ready
-                tileClickAudio.currentTime = 0; // Rewind to the start
-                tileClickAudio.volume = 0.3; // Set volume to 30%
-                tileClickAudio.play().catch(e => console.warn("Error playing tile click sound:", e)); // Play and catch potential errors
-            }
+            playSound(tileClickAudio, 0.3);
         }
 
         /**
          * Plays the sound for a valid word submission.
          */
         function playGotWordSound() {
-            if (gotWordAudio) {
-                gotWordAudio.load();
-                gotWordAudio.currentTime = 0;
-                gotWordAudio.volume = 0.5; // Adjust volume as needed
-                gotWordAudio.play().catch(e => console.warn("Error playing got word sound:", e));
-            }
+            playSound(gotWordAudio);
         }
 
         /**
          * Plays the sound for an invalid word submission.
          */
         function playNotWordSound() {
-            if (notWordAudio) {
-                notWordAudio.load();
-                notWordAudio.currentTime = 0;
-                notWordAudio.volume = 0.5; // Adjust volume as needed
-                notWordAudio.play().catch(e => console.warn("Error playing not word sound:", e));
-            }
+            playSound(notWordAudio);
         }
 
         /**
          * Plays the sound for a 50+ point word submission.
          */
         function playFiftyPointsSound() {
-            if (fiftyPointsAudio) {
-                fiftyPointsAudio.load();
-                fiftyPointsAudio.currentTime = 0;
-                fiftyPointsAudio.volume = 0.5;
-                fiftyPointsAudio.play().catch(e => console.warn("Error playing 50 points sound:", e));
-            }
+            playSound(fiftyPointsAudio);
         }
 
         /**
          * Plays the sound for a 100+ point word submission.
          */
         function playHundredPointsSound() {
-            if (hundredPointsAudio) {
-                hundredPointsAudio.load();
-                hundredPointsAudio.currentTime = 0;
-                hundredPointsAudio.volume = 0.5;
-                hundredPointsAudio.play().catch(e => console.warn("Error playing 100 points sound:", e));
-            }
+            playSound(hundredPointsAudio);
         }
 
         // --- Utility Functions ---
@@ -780,6 +782,7 @@
 
 
         // --- Dictionary Loading ---
+
         async function loadDictionary() {
             try {
                 // Adjust the path if your dictionary file is in a subfolder
@@ -1010,6 +1013,14 @@
             playerScores = [0, 0];
             currentPlayer = 0;
             placedTiles = [];
+            
+            // Reset badge flags for new game
+            hasScored50Points = false;
+            hasScored100Points = false;
+            hasWonEasy = false;
+            hasWonMedium = false;
+            hasWonHard = false;
+            hasRackAttack = false;
 
             createTileBag();
             generateRandomBonusSquares(); // Generate new bonus squares for this game
@@ -1217,15 +1228,15 @@
                         if (originalParent) {
                             originalParent.appendChild(draggedTile);
                             draggedTileData.assignedLetterForTurn = null; // Clear assignment
-                            draggedTile.querySelector('.tile-letter-display').textContent = ''; // Clear visual
+                            draggedTile.querySelector('.tile-letter-display').textContent = ''; // Revert visual to blank
                             delete draggedTile.dataset.assignedLetter;
                             showMessageBox('Blank tile placement cancelled. Returned to rack.', 'info');
                         } else {
-                             // This case should ideally not happen if originalParent is always set
-                             console.error("Original parent missing after blank tile cancel.");
-                             // Fallback: Just clear temp assignment and remove from wherever it was.
-                             draggedTileData.assignedLetterForTurn = null;
-                             draggedTile.remove(); // Remove from DOM
+                              // This case should ideally not happen if originalParent is always set
+                              console.error("Original parent missing after blank tile cancel.");
+                              // Fallback: Just clear temp assignment and remove from wherever it was.
+                              draggedTileData.assignedLetterForTurn = null;
+                              draggedTile.remove(); // Remove from DOM
                         }
                         // Clear drag state after cancelled blank tile placement
                         draggedTile = null;
@@ -1290,7 +1301,7 @@
                     const cellElement = document.getElementById(`cell-${oldRow}-${oldCol}`);
                     cellElement.innerHTML = ''; // Clear the tile from the cell DOM
                     const bonusType = currentBonusSquares[`${oldRow},${oldCol}`];
-                    if (bonusType) { cellElement.textContent = getBonusLabel(bonusType); } // Restore bonus label
+                    if (bonusType) { cellElement.textContent = getBonusLabel(bonusType); }
 
                     // Remove from placedTiles array
                     placedTiles = placedTiles.filter(p => p.tileElement !== draggedTile);
@@ -1302,16 +1313,13 @@
                     draggedTile.querySelector('.tile-letter-display').textContent = '';
                     delete draggedTile.dataset.assignedLetter; // Remove from DOM dataset
                 }
-                // Add the tile object back to the player's rack array (if it was removed)
-                if (!playerRacks[currentPlayer].includes(draggedTileData)) {
-                    playerRacks[currentPlayer].push(draggedTileData);
-                }
+                playerRacks[currentPlayer].push(draggedTileData); // Add the tile object back to the rack
 
                 // Clean up DOM element datasets for temporary placement
                 delete draggedTile.dataset.tempRow;
                 delete draggedTile.dataset.tempCol;
 
-                renderRack(currentPlayer); // Re-render rack to update DOM based on `playerRacks` array
+                renderRack(currentPlayer); // Re-render rack to show returned tiles
                 playMP3Sound();
                 showMessageBox('Tile moved back to rack.', 'info');
 
@@ -1388,7 +1396,7 @@
                 delete clickedTile.dataset.tempRow;
                 delete clickedTile.dataset.tempCol;
 
-                renderRack(currentPlayer); // Re-render rack to show returned tile
+                renderRack(currentPlayer); // Re-render rack to show returned tiles
                 playMP3Sound();
                 showMessageBox(`Tile ${tileObjToRevert.letter === '_' ? 'blank' : tileObjToRevert.letter} returned to rack.`, 'info');
             }
@@ -1570,7 +1578,7 @@
             }
 
             if (wordsToScore.length === 0) {
-                     return null; // No valid words formed from initial placement, even if single tile.
+                 return null; // No valid words formed from initial placement, even if single tile.
             }
 
             // Process all words formed (primary and perpendicular)
@@ -1666,14 +1674,31 @@
                 playerScores[currentPlayer] += result.score;
                 showMessageBox(`Player ${currentPlayer + 1} scored ${result.score} points! Words: ${result.words.join(', ')}`, 'success');
                 
-                // Play sounds based on score
+                // Play sounds based on score and award badges
                 if (result.score >= 100) {
                     playHundredPointsSound();
+                    if (!hasScored100Points && window.parent && typeof window.parent.awardBadge === 'function') {
+                        window.parent.awardBadge('wordweaver100points', 'Grand Slam');
+                        hasScored100Points = true; // Set flag to prevent future awards
+                    }
                 } else if (result.score >= 50) {
                     playFiftyPointsSound();
+                    if (!hasScored50Points && window.parent && typeof window.parent.awardBadge === 'function') {
+                        window.parent.awardBadge('wordweaver50points', 'High Scorer');
+                        hasScored50Points = true; // Set flag to prevent future awards
+                    }
                 } else {
                     playGotWordSound(); 
                 }
+                
+                // Check for and award Rack Attack badge if all 7 tiles were used
+                if (placedTiles.length === RACK_SIZE) {
+                    if (!hasRackAttack && window.parent && typeof window.parent.awardBadge === 'function') {
+                        window.parent.awardBadge('rackattack', 'RACKATTACK');
+                        hasRackAttack = true;
+                    }
+                }
+
 
                 // Make placed tiles permanent on the actual board and DOM
                 placedTiles.forEach(pTile => {
@@ -1741,10 +1766,13 @@
                 const bonusType = currentBonusSquares[`${r},${c}`];
                 if (bonusType) { cellElement.textContent = getBonusLabel(bonusType); }
 
+                // Remove from placedTiles array after processing
+                placedTiles = placedTiles.filter(p => p.tileElement !== clickedTile);
                 delete tileElement.dataset.tempRow;
                 delete tileElement.dataset.tempCol;
 
                 renderRack(currentPlayer); // Re-render rack to show returned tiles
+                playMP3Sound();
                 showMessageBox('Tiles reverted to rack.', 'info');
             });
             placedTiles = []; // Clear placed tiles
@@ -1760,12 +1788,38 @@
             // Check for game end condition (e.g., tile bag empty and a player's rack is empty)
             if (tileBag.length === 0 && playerRacks[currentPlayer].length === 0) {
                 let winnerMessage;
+                let winnerPlayerIndex = -1;
+
                 if (playerScores[0] > playerScores[1]) {
                     winnerMessage = "Player 1 wins!";
+                    winnerPlayerIndex = 0;
                 } else if (playerScores[1] > playerScores[0]) {
                     winnerMessage = `${gameMode === 'one-player' ? 'AI' : 'Player 2'} wins!`;
+                    winnerPlayerIndex = 1;
                 } else {
                     winnerMessage = "It's a tie!";
+                }
+                
+                // If the winner is the human player and it's a one-player game, award the difficulty badge
+                if (gameMode === 'one-player' && winnerPlayerIndex === 0) {
+                    let badgeName;
+                    let badgeDisplayName;
+                    if (aiDifficulty === 'easy' && !hasWonEasy) {
+                        badgeName = 'wordweavereasy';
+                        badgeDisplayName = 'Word Weaver Easy';
+                        hasWonEasy = true;
+                    } else if (aiDifficulty === 'medium' && !hasWonMedium) {
+                        badgeName = 'wordweavermedium';
+                        badgeDisplayName = 'Word Weaver Medium';
+                        hasWonMedium = true;
+                    } else if (aiDifficulty === 'hard' && !hasWonHard) {
+                        badgeName = 'wordweaverhard';
+                        badgeDisplayName = 'Word Weaver Hard';
+                        hasWonHard = true;
+                    }
+                    if (badgeName && window.parent && typeof window.parent.awardBadge === 'function') {
+                         window.parent.awardBadge(badgeName, badgeDisplayName);
+                    }
                 }
 
                 showModal(`Game Over! Player 1: ${playerScores[0]} points, Player ${player2Label.textContent}: ${player2ScoreElement.textContent} points. ${winnerMessage}`, () => {
@@ -1775,8 +1829,6 @@
                 });
             } else if (placedTiles.length > 0) {
                 // If turn ended with tiles on board (e.g., by pass button), revert tiles.
-                // This case is typically handled by the passTurnBtn's explicit revertPlacedTiles call
-                // but as a safeguard, if any tiles somehow remain, they should be cleared.
                 revertPlacedTiles();
             }
 
@@ -1791,7 +1843,7 @@
          */
         function shuffleRack() {
             if (gameMode === 'one-player' && currentPlayer === 1) {
-                showMessageBox("AI can't shuffle its rack. It plays automatically.", 'info');
+                showMessageBox("You can't shuffle AI's rack. It plays automatically.", 'info');
                 return;
             }
             if (!isDictionaryLoaded) { showMessageBox('Dictionary still loading. Please wait.', 'info'); return; }
@@ -1817,8 +1869,9 @@
                 showMessageBox("Your rack is empty, no tiles to exchange!", 'error');
                 return;
             }
+            // Add check for tile bag before allowing exchange
             if (tileBag.length === 0) {
-                showMessageBox('No tiles left in the bag to exchange!', 'error');
+                showMessageBox("No tiles left in the bag to exchange!", "error");
                 return;
             }
 
@@ -2396,5 +2449,3 @@
     </script>
 </body>
 </html>
-
-
