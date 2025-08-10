@@ -608,7 +608,7 @@
         let draggedTileData = null;
         let originalParent = null;
         let placedTiles = [];
-        let isFirstMoveOfGame = true; // Added flag to track first move
+        let isFirstMoveOfGame = true;
 
         // DOM Elements
         const mainMenu = document.getElementById('main-menu');
@@ -655,10 +655,12 @@
         const badgesListElement = document.getElementById('badges-list');
         const ALL_ACHIEVEMENTS = [
             { id: 'firstWord', name: 'First Word', icon: '📝' },
-            { id: 'highScorer', name: 'High Scorer (50+ pts)', icon: '🏆' },
-            { id: 'grandSlam', name: 'Grand Slam (100+ pts)', icon: '🥇' },
-            { id: 'rackAttack', name: 'Rack Attack (7 tiles)', icon: '🎯' },
-            { id: 'gameWinner', name: 'Game Winner', icon: '👑' },
+            { id: 'highScorer', name: 'High Scorer (50+ pts)', icon: '🥇' },
+            { id: 'grandSlam', name: 'Grand Slam (100+ pts)', icon: '🏆' },
+            { id: 'rackAttack', name: 'Rack Attack (7 tiles)', icon: '💥' },
+            { id: 'easyAIWinner', name: 'Easy AI Winner', icon: '👾' },
+            { id: 'mediumAIWinner', name: 'Medium AI Winner', icon: '🤖' },
+            { id: 'hardAIWinner', name: 'Hard AI Winner', icon: '👹' },
         ];
         let earnedAchievements = new Set();
         let db, auth, userId;
@@ -667,7 +669,6 @@
         // --- Firebase Initialization and Auth ---
         async function initializeFirebase() {
             try {
-                // Ensure global variables are defined in the Canvas environment
                 if (typeof __firebase_config === 'undefined' || typeof __initial_auth_token === 'undefined') {
                     console.error('Firebase configuration or auth token is not available.');
                     showMessageBox('Error: Firebase is not configured. Badges will not be saved.', 'error');
@@ -680,22 +681,18 @@
                 auth = firebase.getAuth(app);
                 const token = __initial_auth_token;
 
-                // Sign in with the custom token or anonymously if not available
                 if (token) {
                     await firebase.signInWithCustomToken(auth, token);
                 } else {
                     await firebase.signInAnonymously(auth);
                 }
 
-                // Listen for auth state changes to get the user ID
                 firebase.onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
                         isAuthReady = true;
-                        // Fetch and listen for real-time updates to achievements
                         listenForAchievements();
                     } else {
-                        // Signed out or anonymous
                         isAuthReady = false;
                         userId = null;
                         showMessageBox('Signed out. Badges cannot be saved.', 'info');
@@ -1608,9 +1605,17 @@
                     winnerPlayerIndex = -1;
                 }
 
-                // --- NEW: Check for Game Winner badge ---
+                // --- NEW: Check for Game Winner badge based on game mode and difficulty ---
                 if (isAuthReady && winnerPlayerIndex === 0) {
-                    checkAndAwardBadge('gameWinner', 'Game Winner');
+                    if (gameMode === 'one-player') {
+                        if (aiDifficulty === 'easy') {
+                            checkAndAwardBadge('easyAIWinner', 'Easy AI Winner');
+                        } else if (aiDifficulty === 'medium') {
+                            checkAndAwardBadge('mediumAIWinner', 'Medium AI Winner');
+                        } else if (aiDifficulty === 'hard') {
+                            checkAndAwardBadge('hardAIWinner', 'Hard AI Winner');
+                        }
+                    }
                 }
 
                 showModal(`Game Over! Player 1: ${playerScores[0]} points, Player ${player2Label.textContent}: ${player2ScoreElement.textContent} points. ${winnerMessage}`, () => {
