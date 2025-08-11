@@ -706,6 +706,44 @@
                 default: return '';
             }
         }
+// BEGIN TRIE IMPLEMENTATION FOR FASTER DICTIONARY LOOKUPS
+class TrieNode {
+    constructor() {
+        this.children = {};
+        this.isEndOfWord = false;
+    }
+}
+
+class Trie {
+    constructor() {
+        this.root = new TrieNode();
+    }
+
+    insert(word) {
+        let node = this.root;
+        for (const char of word) {
+            if (!node.children[char]) {
+                node.children[char] = new TrieNode();
+            }
+            node = node.children[char];
+        }
+        node.isEndOfWord = true;
+    }
+
+    search(word) {
+        let node = this.root;
+        for (const char of word) {
+            if (!node.children[char]) {
+                return false;
+            }
+            node = node.children[char];
+        }
+        return node.isEndOfWord;
+    }
+}
+// END TRIE IMPLEMENTATION
+
+let wordTrie = new Trie();
 
 async function loadDictionary() {
     try {
@@ -715,6 +753,7 @@ async function loadDictionary() {
         }
         const text = await response.text();
         VALID_WORDS = new Set(text.split('\n').map(word => word.trim().toUpperCase()).filter(word => word));
+        VALID_WORDS.forEach(word => wordTrie.insert(word)); // Insert into Trie
         isDictionaryLoaded = true;
         showMessageBox(`Dictionary loaded with ${VALID_WORDS.size} words!`, 'success');
     } catch (error) {
@@ -722,10 +761,10 @@ async function loadDictionary() {
         showMessageBox('Failed to load dictionary. Using fallback.', 'error');
         // Fallback to hardcoded list if needed
         VALID_WORDS = new Set(DICTIONARY_WORDS.map(word => word.toUpperCase()));
+        VALID_WORDS.forEach(word => wordTrie.insert(word)); // Insert fallback words into Trie
         isDictionaryLoaded = true;
     }
 }
-
 
         function createTileBag() {
             tileBag = [];
@@ -1313,7 +1352,7 @@ async function loadDictionary() {
 
             // 5. Validate all words against the dictionary
             for (const [word] of formedWords) {
-                if (!VALID_WORDS.has(word.toUpperCase())) {
+                if (!wordTrie.search(word.toUpperCase())) {
                     return null; // Invalid if any word isn't in dictionary
                 }
             }
