@@ -1178,110 +1178,78 @@ async function loadDictionary() {
         }
 
 
+        // START OF REVISED LOGIC
+        /**
+         * Validates and scores all words formed by a move.
+         * @param {Array<Array<Object|null>>} currentBoard - The current state of the game board.
+         * @param {Array<Object>} tilesToValidate - An array of objects representing the newly placed tiles. Each object has {r, c, letter, points}.
+         * @returns {Object|null} An object with the total score and a list of words, or null if the move is invalid.
+         */
         function validateAndScoreWords(currentBoard, tilesToValidate) {
             if (tilesToValidate.length === 0) {
                 return null;
             }
 
+            // 1. Sort tiles to determine direction and check for gaps
             tilesToValidate.sort((a, b) => {
-                const rowA = a.r;
-                const colA = a.c;
-                const rowB = b.r;
-                const colB = b.c;
-                if (rowA !== rowB) return rowA - rowB;
-                return colA - colB;
+                if (a.r !== b.r) return a.r - b.r;
+                return a.c - b.c;
             });
 
-            let firstTileRow = tilesToValidate[0].r;
-            let firstTileCol = tilesToValidate[0].c;
-
-            let isHorizontal = true;
-            let isVertical = true;
-            if (tilesToValidate.length > 1) {
-                for (let i = 1; i < tilesToValidate.length; i++) {
-                    const row1 = tilesToValidate[i-1].r;
-                    const col1 = tilesToValidate[i-1].c;
-                    const row2 = tilesToValidate[i].r;
-                    const col2 = tilesToValidate[i].c;
-                    if (row1 !== row2) isHorizontal = false;
-                    if (col1 !== col2) isVertical = false;
-                }
-            } else {
-                isHorizontal = true;
-                isVertical = true;
-            }
+            const isHorizontal = tilesToValidate.every(t => t.r === tilesToValidate[0].r);
+            const isVertical = tilesToValidate.every(t => t.c === tilesToValidate[0].c);
 
             if (!isHorizontal && !isVertical) {
-                return null;
-            }
-            if (isHorizontal && isVertical && tilesToValidate.length > 1) {
-                return null;
+                return null; // Not in a single line
             }
 
-            if (tilesToValidate.length > 1) {
-                if (isHorizontal) {
-                    const row = tilesToValidate[0].r;
-                    const startCol = tilesToValidate[0].c;
-                    const endCol = tilesToValidate[tilesToValidate.length - 1].c;
-                    for (let c = startCol; c <= endCol; c++) {
-                        const isOccupied = tilesToValidate.some(t => t.r === row && t.c === c) || currentBoard[row][c] !== null;
-                        if (!isOccupied) {
-                            return null;
+            // Check for gaps in the placed tiles
+            const checkGaps = (tiles, dir) => {
+                if (tiles.length <= 1) return true;
+                for (let i = 1; i < tiles.length; i++) {
+                    let prev = tiles[i - 1];
+                    let curr = tiles[i];
+                    if (dir === 'horizontal') {
+                        for (let c = prev.c + 1; c < curr.c; c++) {
+                            if (!currentBoard[prev.r][c]) {
+                                return false; // Gap found
+                            }
                         }
-                    }
-                } else {
-                    const col = tilesToValidate[0].c;
-                    const startRow = tilesToValidate[0].r;
-                    const endRow = tilesToValidate[tilesToValidate.length - 1].r;
-                    for (let r = startRow; r <= endRow; r++) {
-                        const isOccupied = tilesToValidate.some(t => t.r === r && t.c === col) || currentBoard[r][col] !== null;
-                        if (!isOccupied) {
-                            return null;
-                        }
-                    }
-                }
-            }
-
-            let connectedToExisting = false;
-            let isFirstMove = true;
-            for(let r=0; r<BOARD_SIZE; r++) {
-                for(let c=0; c<BOARD_SIZE; c++) {
-                    if(currentBoard[r][c] !== null && !tilesToValidate.some(t => t.r === r && t.c === c)) {
-                        isFirstMove = false;
-                        break;
-                    }
-                }
-                if (!isFirstMove) break;
-            }
-
-            if (isFirstMove) {
-                const coversStartCell = tilesToValidate.some(tile => tile.r === 7 && tile.c === 7);
-                if (!coversStartCell) {
-                    return null;
-                }
-            } else {
-                for (const pTile of tilesToValidate) {
-                    const r = pTile.r;
-                    const c = pTile.c;
-                    const neighbors = [[r-1, c], [r+1, c], [r, c-1], [r, c+1]];
-                    for (const [nr, nc] of neighbors) {
-                        if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE) {
-                            const isNeighborNewlyPlaced = tilesToValidate.some(t => t.r === nr && t.c === nc);
-                            if (currentBoard[nr][nc] !== null && !isNeighborNewlyPlaced) {
-                                connectedToExisting = true;
-                                break;
+                    } else { // vertical
+                        for (let r = prev.r + 1; r < curr.r; r++) {
+                            if (!currentBoard[r][prev.c]) {
+                                return false; // Gap found
                             }
                         }
                     }
-                    if (connectedToExisting) break;
                 }
-                if (!connectedToExisting) {
-                    return null;
-                }
+                return true;
+            };
+
+            if (isHorizontal && !checkGaps(tilesToValidate, 'horizontal')) return null;
+            if (isVertical && !checkGaps(tilesToValidate, 'vertical')) return null;
+
+
+            // 2. Check first move on start cell
+            const isFirstMove = !currentBoard.some(row => row.some(cell => cell !== null));
+            if (isFirstMove && !tilesToValidate.some(t => t.r === 7 && t.c === 7)) {
+                return null; // First word must cover the center
             }
 
-            let totalScore = 0;
-            const formedWords = new Set();
+            // 3. Check connection to existing tiles (after first move)
+            if (!isFirstMove) {
+                const isConnected = tilesToValidate.some(t => {
+                    const { r, c } = t;
+                    const neighbors = [[r-1, c], [r+1, c], [r, c-1], [r, c+1]];
+                    return neighbors.some(([nr, nc]) => {
+                        return nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && currentBoard[nr][nc] !== null;
+                    });
+                });
+                if (!isConnected) return null;
+            }
+            
+            // 4. Find and score all words (primary and cross words)
+            const formedWords = new Map();
 
             const getFullWord = (r, c, direction, boardState) => {
                 let word = '';
@@ -1292,7 +1260,7 @@ async function loadDictionary() {
                     while (startC > 0 && boardState[r][startC - 1]) {
                         startC--;
                     }
-                } else {
+                } else { // vertical
                     while (startR > 0 && boardState[startR - 1][c]) {
                         startR--;
                     }
@@ -1300,7 +1268,8 @@ async function loadDictionary() {
 
                 let currentR = startR, currentC = startC;
                 while (currentR < BOARD_SIZE && currentC < BOARD_SIZE && boardState[currentR][currentC]) {
-                    const effectiveLetter = boardState[currentR][currentC].assignedLetter || boardState[currentR][currentC].letter;
+                    const tile = boardState[currentR][currentC];
+                    const effectiveLetter = tile.assignedLetter || tile.letter;
                     word += effectiveLetter;
                     wordTiles.push({ r: currentR, c: currentC });
                     if (direction === 'horizontal') currentC++;
@@ -1308,70 +1277,110 @@ async function loadDictionary() {
                 }
                 return { word, wordTiles };
             };
+            
+            // Temporarily update the board to find all words
+            const tempBoard = JSON.parse(JSON.stringify(currentBoard));
+            tilesToValidate.forEach(t => {
+                tempBoard[t.r][t.c] = {
+                    letter: t.letter,
+                    points: t.points,
+                    assignedLetter: t.assignedLetter
+                };
+            });
 
-            let wordsToScore = [];
-
-            const isSingleTile = tilesToValidate.length === 1;
-            const primaryTile = tilesToValidate[0];
-
-            if (isHorizontal) {
-                const { word, wordTiles } = getFullWord(primaryTile.r, primaryTile.c, 'horizontal', currentBoard);
-                if (wordTiles.length > (isSingleTile ? 1 : 0)) {
-                    wordsToScore.push({ word, tiles: wordTiles, direction: 'horizontal' });
-                }
+            // Find primary word
+            const primaryDirection = isHorizontal ? 'horizontal' : 'vertical';
+            const primaryWordInfo = getFullWord(tilesToValidate[0].r, tilesToValidate[0].c, primaryDirection, tempBoard);
+            if (primaryWordInfo.wordTiles.length > 1) {
+                formedWords.set(primaryWordInfo.word, { tiles: primaryWordInfo.wordTiles });
             }
-            if (isVertical) {
-                const { word, wordTiles } = getFullWord(primaryTile.r, primaryTile.c, 'vertical', currentBoard);
-                if (wordTiles.length > (isSingleTile ? 1 : 0) && !(isSingleTile && isHorizontal && wordsToScore[0] && wordsToScore[0].word.toUpperCase() === word.toUpperCase())) {
-                    wordsToScore.push({ word, tiles: wordTiles, direction: 'vertical' });
-                }
-            }
 
-            if (wordsToScore.length === 0) {
+            // Find cross words
+            const perpendicularDir = isHorizontal ? 'vertical' : 'horizontal';
+            tilesToValidate.forEach(placedTile => {
+                const crossWordInfo = getFullWord(placedTile.r, placedTile.c, perpendicularDir, tempBoard);
+                if (crossWordInfo.wordTiles.length > 1) {
+                    if (!formedWords.has(crossWordInfo.word)) {
+                        formedWords.set(crossWordInfo.word, { tiles: crossWordInfo.wordTiles });
+                    }
+                }
+            });
+
+            // If no words were formed, it's an invalid move
+            if (formedWords.size === 0) {
                 return null;
             }
 
-            for (const { word: currentWord, tiles: currentWordTiles } of wordsToScore) {
-                if (!VALID_WORDS.has(currentWord.toUpperCase())) {
-                    return null;
+            // 5. Validate all words against the dictionary
+            for (const [word] of formedWords) {
+                if (!VALID_WORDS.has(word.toUpperCase())) {
+                    return null; // Invalid if any word isn't in dictionary
                 }
-                formedWords.add(currentWord);
+            }
 
+            // 6. Score all words
+            let totalScore = 0;
+            formedWords.forEach(({ tiles }) => {
                 let wordScore = 0;
                 let wordMultiplier = 1;
 
-                for (const { r, c } of currentWordTiles) {
-                    const bonusType = currentBonusSquares[`${r},${c}`];
-                    const tileInBoard = currentBoard[r][c];
-                    let tilePoints = tileInBoard.points;
-
-                    const isNewlyPlacedInThisMove = tilesToValidate.some(t => t.r === r && t.c === c);
-
+                tiles.forEach(({ r, c }) => {
+                    const tile = tempBoard[r][c];
+                    const isNew = tilesToValidate.some(t => t.r === r && t.c === c);
                     let letterMultiplier = 1;
-                    if (isNewlyPlacedInThisMove) {
-                        if (bonusType === 'double-letter') letterMultiplier = 2;
-                        if (bonusType === 'triple-letter') letterMultiplier = 3;
-                        if (bonusType === 'quadruple-letter') letterMultiplier = 4;
-                        if (bonusType === 'double-word' || bonusType === 'start-cell') wordMultiplier *= 2;
-                        if (bonusType === 'triple-word') wordMultiplier *= 3;
-                        if (bonusType === 'quadruple-word') wordMultiplier *= 4;
+
+                    if (isNew) {
+                        const bonus = currentBonusSquares[`${r},${c}`];
+                        if (bonus === 'double-letter') letterMultiplier = 2;
+                        if (bonus === 'triple-letter') letterMultiplier = 3;
+                        if (bonus === 'quadruple-letter') letterMultiplier = 4;
+                        if (bonus === 'double-word' || bonus === 'start-cell') wordMultiplier *= 2;
+                        if (bonus === 'triple-word') wordMultiplier *= 3;
+                        if (bonus === 'quadruple-word') wordMultiplier *= 4;
                     }
 
-                    if (tileInBoard.letter === '_') {
-                        tilePoints = 0;
-                    }
+                    wordScore += (tile.letter === '_' ? 0 : tile.points) * letterMultiplier;
+                });
+                totalScore += wordScore * wordMultiplier;
+            });
 
-                    wordScore += tilePoints * letterMultiplier;
-                }
-                wordScore *= wordMultiplier;
-                totalScore += wordScore;
-            }
-
+            // Add bingo bonus
             if (tilesToValidate.length === RACK_SIZE) {
                 totalScore += 50;
             }
 
-            return { score: totalScore, words: Array.from(formedWords) };
+            return { score: totalScore, words: Array.from(formedWords.keys()) };
+        }
+        // END OF REVISED LOGIC
+
+        // The getFullWord function is needed by the new logic, so let's define it explicitly.
+        // It's a helper function and doesn't need to be part of the user-facing logic change,
+        // but it's crucial for the new `validateAndScoreWords` function to work.
+        function getFullWord(r, c, direction, boardState) {
+            let word = '';
+            let wordTiles = [];
+            let startR = r, startC = c;
+
+            if (direction === 'horizontal') {
+                while (startC > 0 && boardState[r][startC - 1]) {
+                    startC--;
+                }
+            } else { // vertical
+                while (startR > 0 && boardState[startR - 1][c]) {
+                    startR--;
+                }
+            }
+
+            let currentR = startR, currentC = startC;
+            while (currentR < BOARD_SIZE && currentC < BOARD_SIZE && boardState[currentR][currentC]) {
+                const tile = boardState[currentR][currentC];
+                const effectiveLetter = tile.assignedLetter || tile.letter;
+                word += effectiveLetter;
+                wordTiles.push({ r: currentR, c: currentC });
+                if (direction === 'horizontal') currentC++;
+                else currentR++;
+            }
+            return { word, wordTiles };
         }
 
         function submitWord() {
@@ -1384,28 +1393,15 @@ async function loadDictionary() {
                 return;
             }
 
-            const tempBoard = JSON.parse(JSON.stringify(board));
-            const tempPlacedTilesData = [];
+            const tempPlacedTilesData = placedTiles.map(pTile => ({
+                r: pTile.r,
+                c: pTile.c,
+                letter: pTile.tileObj.assignedLetterForTurn || pTile.tileObj.letter,
+                points: pTile.tileObj.points,
+                assignedLetter: pTile.tileObj.assignedLetterForTurn
+            }));
 
-            placedTiles.forEach(pTile => {
-                const { r, c, tileObj } = pTile;
-                const effectiveLetter = tileObj.assignedLetterForTurn || tileObj.letter;
-
-                tempBoard[r][c] = {
-                    letter: tileObj.letter,
-                    points: tileObj.points,
-                    assignedLetter: tileObj.assignedLetterForTurn || null
-                };
-
-                tempPlacedTilesData.push({
-                    r: r,
-                    c: c,
-                    letter: effectiveLetter,
-                    points: tileObj.points
-                });
-            });
-
-            const result = validateAndScoreWords(tempBoard, tempPlacedTilesData);
+            const result = validateAndScoreWords(board, tempPlacedTilesData);
 
             if (result) {
                 playerScores[currentPlayer] += result.score;
@@ -1751,14 +1747,12 @@ async function loadDictionary() {
                 if (currentRow >= BOARD_SIZE || currentCol >= BOARD_SIZE) {
                     return null;
                 }
-                if (simulatedBoard[currentRow][currentCol] !== null &&
-                    !tilesToPlaceFromRack.some(t => t === simulatedBoard[currentRow][currentCol])) {
+                
+                // If the current cell is already occupied, skip it
+                if (simulatedBoard[currentRow][currentCol] !== null) {
                     if (direction === 'horizontal') currentCol++;
                     else currentRow++;
                     continue;
-                }
-                if (simulatedBoard[currentRow][currentCol] !== null) {
-                    return null;
                 }
 
                 const tile = tilesToPlaceFromRack[currentTileIndex];
@@ -1771,12 +1765,40 @@ async function loadDictionary() {
                     r: currentRow,
                     c: currentCol,
                     letter: tile.assignedLetterForTurn || tile.letter,
-                    points: tile.points
+                    points: tile.points,
+                    assignedLetter: tile.assignedLetterForTurn
                 });
 
                 if (direction === 'horizontal') currentCol++;
                 else currentRow++;
                 currentTileIndex++;
+            }
+            
+            // Check for gaps again in the new placement
+            const checkGapsInPlacement = (tiles, dir) => {
+                if (tiles.length <= 1) return true;
+                for (let i = 1; i < tiles.length; i++) {
+                    let prev = tiles[i-1];
+                    let curr = tiles[i];
+                    if (dir === 'horizontal') {
+                        for (let c = prev.c + 1; c < curr.c; c++) {
+                            if (!simulatedBoard[prev.r][c]) {
+                                return false;
+                            }
+                        }
+                    } else { // vertical
+                        for (let r = prev.r + 1; r < curr.r; r++) {
+                            if (!simulatedBoard[r][prev.c]) {
+                                return false;
+                            }
+                        }
+                    }
+                }
+                return true;
+            };
+
+            if (!checkGapsInPlacement(placedTempTilesData, direction)) {
+                return null;
             }
 
             const result = validateAndScoreWords(simulatedBoard, placedTempTilesData);
@@ -1838,7 +1860,7 @@ async function loadDictionary() {
             const aiRack = playerRacks[currentPlayer];
             let chosenMove = null;
             let possibleMoves = [];
-
+            
             aiRack.forEach(tile => {
                 if (tile.letter === '_') {
                     tile.assignedLetterForTurn = null;
@@ -1879,7 +1901,7 @@ async function loadDictionary() {
                     const tilesToRemoveFromRack = chosenMove.rackUsed;
 
                     tilesToRemoveFromRack.forEach(playedTileObj => {
-                        const index = playerRacks[currentPlayer].indexOf(playedTileObj);
+                        const index = playerRacks[currentPlayer].findIndex(t => t === playedTileObj);
                         if (index > -1) {
                             playerRacks[currentPlayer].splice(index, 1);
                         }
@@ -1890,7 +1912,7 @@ async function loadDictionary() {
                             (t.letter === '_' && t.assignedLetterForTurn === tileData.letter) ||
                             (t.letter === tileData.letter && t.points === tileData.points)
                         );
-
+                        
                         board[tileData.r][tileData.c] = {
                             letter: originalTileObj ? originalTileObj.letter : tileData.letter,
                             points: originalTileObj ? originalTileObj.points : tileData.points,
@@ -2023,9 +2045,16 @@ async function loadDictionary() {
             }
         });
 
-        document.addEventListener('DOMContentLoaded', () => {
-            loadDictionary();
-        });
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadDictionary(); // Load dictionary first
+    // Existing initialization code
+    // The previous code had a few functions that were never defined:
+    // initializeTileDistribution(), initializeBoard(), updatePlayerRackDisplay()
+    // The initializeGame() function already handles these steps, so we can just call it once.
+    // However, since we are starting with the main menu visible, we don't need to call it immediately.
+    // The button click handlers will call it.
+    showMessageBox('Game loaded! Make your choice.', 'info');
+});
     </script>
 </body>
 </html>
