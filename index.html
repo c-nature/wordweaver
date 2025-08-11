@@ -707,11 +707,24 @@
             }
         }
 
-        function loadDictionary() {
-            VALID_WORDS = new Set(DICTIONARY_WORDS.map(word => word.toUpperCase()));
-            isDictionaryLoaded = true;
-            showMessageBox(`Dictionary loaded with ${VALID_WORDS.size} words!`, 'success');
+async function loadDictionary() {
+    try {
+        const response = await fetch('scrabble_dictionary.txt'); // Adjust path as needed
+        if (!response.ok) {
+            throw new Error(`Failed to load dictionary: ${response.status}`);
         }
+        const text = await response.text();
+        VALID_WORDS = new Set(text.split('\n').map(word => word.trim().toUpperCase()).filter(word => word));
+        isDictionaryLoaded = true;
+        showMessageBox(`Dictionary loaded with ${VALID_WORDS.size} words!`, 'success');
+    } catch (error) {
+        console.error('Error loading dictionary:', error);
+        showMessageBox('Failed to load dictionary. Using fallback.', 'error');
+        // Fallback to hardcoded list if needed
+        VALID_WORDS = new Set(DICTIONARY_WORDS.map(word => word.toUpperCase()));
+        isDictionaryLoaded = true;
+    }
+}
 
 
         function createTileBag() {
